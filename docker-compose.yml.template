@@ -1,0 +1,64 @@
+version: "3"
+services:
+    openldap:
+        image: osixia/openldap:1.3.0
+        container_name: openldap
+        restart: unless-stopped
+        environment:
+            LDAP_LOG_LEVEL: "256"
+            LDAP_ORGANISATION: "Samuel Alev Inc"
+            LDAP_DOMAIN: "sql-to-starface.local"
+            LDAP_BASE_DN: "sql-to-starface.local"
+
+            LDAP_ADMIN_PASSWORD: "admin"
+            LDAP_CONFIG_PASSWORD: "config"
+
+            LDAP_READONLY_USER: "true"
+            LDAP_READONLY_USER_USERNAME: "READ ONLY USER"
+            LDAP_READONLY_USER_PASSWORD: "READ ONLY PASS"
+
+            LDAP_RFC2307BIS_SCHEMA: "false"
+
+            LDAP_BACKEND: "mdb"
+
+            KEEP_EXISTING_CONFIG: "true"
+            LDAP_REMOVE_CONFIG_AFTER_SETUP: "true"
+            LDAP_SSL_HELPER_PREFIX: "ldap"
+        tty: true
+        stdin_open: true
+        volumes:
+            - ./LDAP/lib:/var/lib/ldap
+            - ./LDAP/etc:/etc/ldap/slapd.d
+        ports:
+            - "389:389"
+            - "636:636"
+        domainname: "sql-to-starface.local" # important: same as hostname
+        hostname: "sql-to-starface.local"
+    phpldapadmin:
+        image: osixia/phpldapadmin:latest
+        container_name: phpldapadmin
+        hostname: "phpldapadmin.sql-to-starface.local"
+        environment:
+            PHPLDAPADMIN_LDAP_HOSTS: "openldap"
+            PHPLDAPADMIN_HTTPS: "true"
+        ports:
+            - "443:443"
+        volumes:
+            - ./LDAP/phpldapadmin:/container/environment/01-custom
+        depends_on:
+            - openldap
+    sync_job:
+        image: sql-to-starface
+        container_name: sync_job
+        environment: 
+            test: test
+            LDAP_HOST: 'ldap://openldap'
+            LDAP_ADMIN_USER: 'USER'
+            LDAP_ADMIN_PASS: 'PASS'
+            LDAP_BASE_DN: 'BASE SEARCH'
+            DB_HOST: 'DB HOST'
+            DB_NAME: 'DB NAME'
+            DB_USER: 'DB USER'
+            DB_PASS: 'DB PASS'
+        depends_on:
+            - openldap
